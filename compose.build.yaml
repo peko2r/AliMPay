@@ -1,0 +1,6 @@
+services:
+  alimpay:
+    build:
+      context: .
+    image: alimpay-bun:local
+    pull_policy: build

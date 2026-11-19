@@ -107,7 +107,41 @@ sudo journalctl -u alimpay -n 100 --no-pager
 
 只运行一个应用进程。当前实现的扫描合并与通知认领以单进程为边界，不支持多副本横向扩容。
 
-## Docker Compose（可选）
+## Docker 在线部署（推荐）
+
+每次推送到 `main` 或创建 `v*.*.*` 版本标签后，GitHub Actions 会构建并发布镜像到 GitHub Container Registry：
+`ghcr.io/peko2r/alimpay`。首次使用前，请在 GitHub Packages 中将这个镜像设置为 Public；Public 镜像可以在部署机上匿名拉取。
+
+部署机不需要 Git、Bun 或项目源码。下面示例把配置放在 `/opt/AliMPay`，并让 Compose 始终拉取最新镜像：
+
+```bash
+sudo mkdir -p /opt/AliMPay/data
+sudo chown -R "$USER":"$USER" /opt/AliMPay
+cd /opt/AliMPay
+curl -fsSL https://raw.githubusercontent.com/peko2r/AliMPay/main/compose.yaml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/peko2r/AliMPay/main/.env.example -o .env
+```
+
+编辑 `.env`，至少把 `PUBLIC_BASE_URL` 改成实际 HTTPS 域名；然后启动：
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+curl -fsS http://127.0.0.1:3000/healthz
+```
+
+默认镜像地址可以通过 `.env` 中的 `ALIMPAY_IMAGE` 覆盖，例如固定到某个版本：
+
+```dotenv
+ALIMPAY_IMAGE=ghcr.io/peko2r/alimpay:1.0.0
+```
+
+Compose 默认只把端口绑定到 `127.0.0.1:3000`，应由 Caddy、Nginx 或其他 HTTPS 反向代理对外提供服务。
+
+## Docker Compose（本地构建）
+
+需要从当前源码构建镜像时，使用本地构建 override；生产部署不需要这个文件：
 
 创建 `.env`：
 
@@ -119,12 +153,12 @@ PUBLIC_BASE_URL=https://pay.example.com
 启动：
 
 ```bash
-docker compose up -d --build
-docker compose ps
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+docker compose -f compose.yaml -f compose.build.yaml ps
 curl -fsS http://127.0.0.1:3000/healthz
 ```
 
-Compose 默认只把端口绑定到 `127.0.0.1:3000`，应由 Caddy、Nginx 或其他 HTTPS 反向代理对外提供服务。Nginx 最小配置示例：
+Nginx 最小配置示例：
 
 ```nginx
 server {
