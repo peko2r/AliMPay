@@ -12,6 +12,8 @@ Status: implemented
 
 本地源码构建移到 `compose.build.yaml` override。部署文档提供从 GitHub Raw 下载 Compose 和环境模板的步骤，并保留 `ALIMPAY_IMAGE` 覆盖入口以便固定版本或使用私有镜像。
 
+面板部署文档推荐创建命名卷并以读写方式挂载到容器 `/data`，无需预建宿主机数据目录。仓库 Compose 继续使用 `./data:/data` 目录绑定；文档分别说明两种部署方式及其备份入口。更新或重建容器必须复用原数据卷，数据目录或卷内的 `.master-key` 必须与数据库一起保留。
+
 ## Alternatives considered
 
 直接把源码仓库作为部署入口的优点是无需配置镜像仓库，但每台机器都要安装构建工具并耗费构建时间，无法满足在线拉取后直接运行的目标。
@@ -20,6 +22,6 @@ Status: implemented
 
 ## Consequences
 
-部署机只需要 Docker、Compose 和一个可写的数据目录即可启动；发布流程会为 `main` 提供滚动的 `latest`，为版本标签提供可回滚的版本镜像。GHCR 包首次创建后仍需在 GitHub Packages 页面将可见性设为 Public，私有包部署则需要额外的 `docker login`。
+面板部署只需要容器引擎和一个可写的数据卷，Compose 部署使用可写的数据目录；发布流程会为 `main` 提供滚动的 `latest`，为版本标签提供可回滚的版本镜像。GHCR 包首次创建后仍需在 GitHub Packages 页面将可见性设为 Public，私有包部署则需要额外的 `docker login`。
 
 本地开发多维护一个 override 文件，但仍可继续从当前源码构建，不会把开发流程绑定到远程镜像。

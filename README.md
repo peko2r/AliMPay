@@ -112,7 +112,31 @@ sudo journalctl -u alimpay -n 100 --no-pager
 每次推送到 `main` 或创建 `v*.*.*` 版本标签后，GitHub Actions 会构建并发布镜像到 GitHub Container Registry：
 `ghcr.io/peko2r/alimpay`。首次使用前，请在 GitHub Packages 中将这个镜像设置为 Public；Public 镜像可以在部署机上匿名拉取。
 
-部署机不需要 Git、Bun 或项目源码。下面示例把配置放在 `/opt/AliMPay`，并让 Compose 始终拉取最新镜像：
+部署机不需要 Git、Bun 或项目源码，可以在容器管理面板中直接创建容器，也可以使用 Compose。
+
+### 容器管理面板部署（使用命名卷）
+
+在面板的“卷 / Volumes”中创建一个命名卷，例如 `alimpay-data`。创建容器时填写：
+
+| 配置项 | 填写内容 |
+| --- | --- |
+| 镜像 | `ghcr.io/peko2r/alimpay:latest` |
+| 重启策略 | `unless-stopped` |
+| 挂载类型 | 卷 / Volume |
+| 卷名称 | 选择刚创建的 `alimpay-data`，或你已有的数据卷 |
+| 容器挂载路径 | `/data` |
+| 挂载权限 | 读写 |
+| 端口映射 | 宿主机 `127.0.0.1:3000` → 容器 `3000/tcp`，供同机反向代理访问 |
+
+环境变量至少设置 `PUBLIC_BASE_URL=https://你的支付域名`。镜像已默认设置 `DATA_DIR=/data`；`APP_MASTER_KEY` 留空即可在数据卷中自动生成主密钥。同机可信反向代理需要转发客户端 IP 时，可设置 `TRUST_PROXY=true`。
+
+命名卷由容器引擎管理，无需创建宿主机目录，也无需填写 `/srv/alimpay-data` 这类宿主机路径。数据库、上传图片和自动生成的 `.master-key` 都保存在挂载到 `/data` 的卷中。
+
+更新镜像或重建容器时，继续挂载原来的卷即可保留数据。删除容器时保留数据卷；已有数据的实例不要直接换成空卷，否则程序会以全新实例启动。
+
+### Compose 部署（使用目录绑定）
+
+仓库提供的 `compose.yaml` 使用 `./data:/data` 目录绑定。下面示例把配置和数据放在 `/opt/AliMPay`，并让 Compose 始终拉取最新镜像：
 
 ```bash
 sudo mkdir -p /opt/AliMPay/data
@@ -177,7 +201,7 @@ server {
 }
 ```
 
-无论直接运行还是使用 Compose，都应把 `data` 目录放在持久磁盘并纳入备份。
+直接运行和当前 Compose 示例应备份数据目录；使用命名卷部署时，应备份挂载到 `/data` 的数据卷。
 
 ## 首次配置顺序
 
@@ -258,13 +282,15 @@ V2 使用 SHA256WithRSA（PKCS#1 v1.5），请求由商户私钥签名，响应�
 - `uploads/` 经营码图片
 - 自动生成的 `.master-key`（如显式设置 `APP_MASTER_KEY`，则另行备份环境变量）
 
-在线备份优先使用 SQLite backup：
+直接运行或使用仓库 Compose 目录绑定示例时，在线备份数据库优先使用 SQLite backup：
 
 ```bash
 sqlite3 data/alimpay.sqlite ".backup 'alimpay-$(date +%F).sqlite'"
 ```
 
-恢复时先停止 Bun 进程，再恢复数据库、上传目录和与之匹配的 `.master-key`；如使用环境变量，则恢复相同的 `APP_MASTER_KEY`。主密钥不匹配时，所有加密私钥都无法解密。
+使用命名卷时，可先停止容器，再通过容器管理面板的卷备份或导出功能备份整个数据卷（若面板支持），确保包含数据库、`uploads/` 和隐藏文件 `.master-key`。上面的 `data/alimpay.sqlite` 是宿主机目录绑定示例路径，不是命名卷的宿主机路径。
+
+恢复时先停止 Bun 进程或容器，再恢复数据库、上传目录和与之匹配的 `.master-key`；命名卷部署需将数据恢复到卷内，并让容器重新挂载该卷至 `/data`。如使用环境变量，则恢复相同的 `APP_MASTER_KEY`。主密钥不匹配时，所有加密私钥都无法解密。
 
 ## 测试
 
