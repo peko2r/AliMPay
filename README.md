@@ -109,8 +109,8 @@ sudo journalctl -u alimpay -n 100 --no-pager
 
 ## Docker 在线部署（推荐）
 
-每次推送到 `main` 或创建 `v*.*.*` 版本标签后，GitHub Actions 会构建并发布镜像到 GitHub Container Registry：
-`ghcr.io/peko2r/alimpay`。首次使用前，请在 GitHub Packages 中将这个镜像设置为 Public；Public 镜像可以在部署机上匿名拉取。
+在线部署使用 GitHub Container Registry 中已经发布的镜像：
+`ghcr.io/peko2r/alimpay`。首次使用前，请在 GitHub Packages 中将这个镜像设置为 Public；Public 镜像可以在部署机上匿名拉取。镜像更新需要通过你的镜像发布流程推送到同一个地址。
 
 部署机不需要 Git、Bun 或项目源码，可以在容器管理面板中直接创建容器，也可以使用 Compose。
 
